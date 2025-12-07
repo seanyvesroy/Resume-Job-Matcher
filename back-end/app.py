@@ -5,15 +5,10 @@ from typing import List, Optional, Union
 
 app = FastAPI()
 
-# -------------------------
-# Prolog Engine
-# -------------------------
 prolog = Prolog()
 prolog.consult("likeness_scoring.pl")
 
-# -------------------------
-# Data Models
-# -------------------------
+
 class ResumeTerm(BaseModel):
     term: str
     start: int   # YYYYMM
@@ -30,9 +25,6 @@ class ScoreRequest(BaseModel):
     job: List[JobTerm]
 
 
-# -------------------------
-# Prolog Fact Injection
-# -------------------------
 def set_resume_terms(terms):
     prolog.query("retractall(resume_term(_,_,_))")
     for t in terms:
@@ -50,9 +42,6 @@ def set_job_terms(terms):
         )
 
 
-# -------------------------
-# API Endpoint
-# -------------------------
 @app.post("/score")
 def get_dynamic_score(payload: ScoreRequest):
 
