@@ -1,32 +1,32 @@
+from fastapi import FastAPI
 from pyswip import Prolog
 
-# Initialize Prolog
-prolog = Prolog()
+app = FastAPI()
 
-# Load your Prolog file
+prolog = Prolog()
 prolog.consult("likeness_scoring.pl")
 
-def run_demo_score():
-    """
-    Calls final_score(Score, Breakdown) from Prolog
-    Returns Python dict with results
-    """
-    query = list(prolog.query("final_score(Score, Breakdown)"))
+@app.get("/score")
+def get_score():
+    result = list(prolog.query("final_score(Score, Breakdown)"))
 
-    if not query:
-        return {"error": "No result returned from Prolog"}
+    if not result:
+        return {"error": "No match returned"}
 
-    result = query[0]
-
-    score = float(result["Score"])
-    breakdown = result["Breakdown"]
+    r = result[0]
 
     return {
-        "score": score,
-        "breakdown": breakdown
+        "score": float(r["Score"]),
+        "breakdown": str(r["Breakdown"])  # stringify Prolog structure safely
     }
+def set_resume_terms(terms):
+    prolog.query("retractall(resume_term(_,_,_))")
+    for term, start, end in terms:
+        prolog.assertz(f"resume_term('{term}', {start}, {end})")
 
-if __name__ == "__main__":
-    output = run_demo_score()
-    print("Final Score:", output["score"])
-    print("Breakdown:", output["breakdown"])
+def set_job_terms(terms):
+    prolog.query("retractall(job_term(_,_,_,_))")
+    for term, importance, start, end in terms:
+        s = start if start != "none" else "none"
+        e = end if end != "none" else "none"
+        prolog.assertz(f"job_term('{term}', {importance}, {s}, {e})")
