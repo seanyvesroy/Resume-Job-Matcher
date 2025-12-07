@@ -1,0 +1,12 @@
+NAME: Sean McCarthy
+EMAIL: sean@email.com
+
+SKILLS:
+azure
+csharp
+sql
+
+EXPERIENCE:
+azure, 201901, 202305
+csharp, 202103, 202107
+sql, 201701, 201812

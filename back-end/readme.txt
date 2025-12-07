@@ -95,16 +95,96 @@ http://127.0.0.1:8000/docs
 This provides a live API tester.
 
 =====================================================================
-API ENDPOINT
+STANDARD RESUME INPUT FORMAT (TEXT FILE)
 =====================================================================
 
-POST /score
+NAME: Sean McCarthy
+EMAIL: sean@email.com
+
+SKILLS:
+azure
+csharp
+sql
+
+EXPERIENCE:
+azure, 201901, 202305
+csharp, 202103, 202107
+sql, 201701, 201812
+
+Rules:
+- Skills must be lowercase
+- Dates must be in YYYYMM format
+- EXPERIENCE lines must follow:
+  skill, startYYYYMM, endYYYYMM
+
+=====================================================================
+STANDARD JOB INPUT FORMAT (TEXT FILE)
+=====================================================================
+
+JOB_TITLE: Cloud Software Engineer
+
+REQUIREMENTS:
+azure, 1.0
+.net, 1.0
+mssql, 0.7
+
+TIME_REQUIREMENTS:
+.net, 201801, none
+
+Rules:
+- Each REQUIREMENT line is:
+  skill, importance
+- Importance must be between 0.0 and 1.0
+- TIME_REQUIREMENTS are optional
+- Use "none" when no timeframe is required
+
+=====================================================================
+API ENDPOINTS
+=====================================================================
+
+POST /parse/resume
+Uploads a resume text file and returns structured resume data for user validation.
+
+POST /parse/job
+Uploads a job description text file and returns structured job data for user validation.
+
+POST /score/from-text
+Accepts validated resume + job data and returns the final match score.
+
+=====================================================================
+PARSING ENDPOINTS
+=====================================================================
+
+Resume Parsing:
+POST /parse/resume
+Form-Data:
+- file: resume text file
+
+Returns structured resume terms extracted from the file.
+
+Job Parsing:
+POST /parse/job
+Form-Data:
+- file: job description text file
+
+Returns structured job terms extracted from the file.
+
+These parsed results should be reviewed and validated by the user
+before being submitted for scoring.
+
+=====================================================================
+FINAL SCORING ENDPOINT
+=====================================================================
+
+POST /score/from-text
 
 URL:
-http://127.0.0.1:8000/score
+http://127.0.0.1:8000/score/from-text
+
+This endpoint expects the validated structured resume and job data.
 
 =====================================================================
-JSON REQUEST FORMAT
+JSON REQUEST FORMAT FOR FINAL SCORING
 =====================================================================
 
 {
@@ -155,7 +235,7 @@ entry(
 CALLING FROM A FRONTEND (JAVASCRIPT)
 =====================================================================
 
-fetch("http://127.0.0.1:8000/score", {
+fetch("http://127.0.0.1:8000/score/from-text", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -171,3 +251,31 @@ fetch("http://127.0.0.1:8000/score", {
 })
 .then(res => res.json())
 .then(data => console.log(data));
+
+=====================================================================
+WORKFLOW SUMMARY
+=====================================================================
+
+1. User uploads resume text file → /parse/resume
+2. User uploads job text file → /parse/job
+3. Frontend displays parsed data for validation
+4. Validated data is sent to → /score/from-text
+5. Backend returns final explainable match score
+
+=====================================================================
+STOPPING THE SERVER
+=====================================================================
+
+CTRL + C
+
+=====================================================================
+ACADEMIC FEATURES
+=====================================================================
+
+- Knowledge Graph Skill Matching
+- Logic Programming (Prolog)
+- Temporal Reasoning
+- Dynamic Knowledge Injection
+- Explainable AI Scoring
+- Semantic Similarity via Ontology
+- Production REST API Backend

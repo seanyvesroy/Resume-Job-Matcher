@@ -1,0 +1,9 @@
+JOB_TITLE: Cloud Software Engineer
+
+REQUIREMENTS:
+azure, 1.0
+.net, 1.0
+mssql, 0.7
+
+TIME_REQUIREMENTS:
+.net, 201801, none
