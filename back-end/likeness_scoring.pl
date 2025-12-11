@@ -2,16 +2,17 @@
 :- use_module(library(aggregate)).
 
 % -------------------------
-% 1) Knowledge Graph
+% Knowledge Graph
 % -------------------------
 related('azure', '.net', 0.01).
 related('sql-server', '.net', 0.12).
-related('asp.net', '.net', 0.27).
+related('asp.net', '.net', 0.97).
 related('entity-framework', '.net', 0.04).
 related('wpf', '.net', 0.12).
 related('linq', '.net', 0.00).
 related('wcf', '.net', 0.08).
-related('c#', '.net', 0.40).
+related('c#', '.net', 0.8).
+
 related('tdd', 'agile', 0.16).
 related('codeigniter', 'ajax', 0.03).
 related('javascript', 'ajax', 0.08).
@@ -173,7 +174,6 @@ related('c#', 'xaml', 0.16).
 related('wpf', 'xaml', 0.12).
 related('wpf', '.net', 0.12).
 related('asp.net-mvc', '.net', 0.19).
-related('c#', '.net', 0.40).
 related('visual-studio', '.net', 0.10).
 related('winforms', '.net', 0.07).
 related('wcf', '.net', 0.08).
@@ -260,7 +260,6 @@ related('gcc', 'c', 0.06).
 related('pthreads', 'c', 0.04).
 related('c++', 'c#', 0.10).
 related('wpf', 'c#', 0.21).
-related('.net', 'c#', 0.40).
 related('asp.net', 'c#', 0.62).
 related('asp.net-mvc', 'c#', 0.53).
 related('linq', 'c#', 0.12).
@@ -748,15 +747,24 @@ related('php', 'zend-framework', 0.13).
 
 
 
+% canonically-viewed symmetric edge
+edge(Xc, Yc, W) :-
+    related(X, Y, W),
+    canonical(X, Xc),
+    canonical(Y, Yc).
 
-edge(X,Y,W) :- related(X,Y,W).
-edge(X,Y,W) :- related(Y,X,W).
+edge(Xc, Yc, W) :-
+    related(Y, X, W),
+    canonical(X, Xc),
+    canonical(Y, Yc).
 
 % -------------------------
 % 2) Aliases
 % -------------------------
 alias('c#','csharp').
 alias('microsoft_sql_server','mssql').
+alias('sql','mssql').
+
 
 canonical(T, C) :-
     ( alias(T, A) -> C = A ; C = T ).
@@ -784,10 +792,9 @@ months_intersection(Start1, End1, Start2, End2, Months) :-
     MinEnd is min(End1, End2),
     months_between(MaxStart, MinEnd, Months).
 
-temporal_factor(RStart, REnd, none, none, Factor) :-
-    months_between(RStart, REnd, M),
-    Factor0 is M / 24,
-    Factor is min(1.0, Factor0), !.
+% If the job has no timeframe requirement, ignore time completely
+temporal_factor(_RStart, _REnd, none, none, 1.0) :- !.
+
 
 temporal_factor(RStart, REnd, JStart, JEnd, Factor) :-
     JStart \= none, JEnd \= none, !,

@@ -43,6 +43,64 @@ def call_score_from_text(resume_terms: List[Dict], job_terms: List[Dict]) -> Dic
     resp.raise_for_status()
     return resp.json()
 
+def merge_job_terms(raw_terms: List[Dict]) -> List[Dict]:
+    """
+    Merge duplicate job terms (same 'term') coming from REQUIREMENTS and TIME_REQUIREMENTS.
+    - importance in [0,1] is treated as weight
+    - importance > 1 that looks like YYYYMM is treated as a start date if start is not already set
+    - explicit start/end fields win if present
+    Result: one unified job term per skill.
+    """
+    term_map: Dict[str, Dict] = {}
+
+    for t in raw_terms:
+        term = t.get("term")
+        if term is None:
+            continue
+
+        importance = t.get("importance")
+        start = t.get("start", "none")
+        end = t.get("end", "none")
+
+        if term not in term_map:
+            term_map[term] = {
+                "term": term,
+                "importance": None,
+                "start": "none",
+                "end": "none",
+            }
+
+        entry = term_map[term]
+
+        # Handle importance: weight vs mis-parsed date
+        if importance is not None:
+            try:
+                imp_val = float(importance)
+            except (ValueError, TypeError):
+                imp_val = None
+
+            if imp_val is not None:
+                if 0.0 <= imp_val <= 1.0:
+                    # This is a real importance weight
+                    entry["importance"] = imp_val
+                else:
+                    # Treat as potential YYYYMM start date if not already set
+                    if entry["start"] == "none" and 100001 <= imp_val <= 999912:
+                        entry["start"] = int(imp_val)
+
+        # Explicit start/end values (if backend already fills them)
+        if start is not None and start != "none":
+            entry["start"] = start
+        if end is not None and end != "none":
+            entry["end"] = end
+
+    # Default any missing importance to 1.0 (optional, but safe)
+    for entry in term_map.values():
+        if entry["importance"] is None:
+            entry["importance"] = 1.0
+
+    return list(term_map.values())
+
 
 # -------------------------------------------------
 # SESSION STATE INITIALISATION
@@ -178,13 +236,21 @@ if parse_btn:
         st.error("Both resume and job text must be provided (either pasted or uploaded).")
     else:
         try:
+            st.session_state.resume_terms = []
+            st.session_state.job_terms = []
+
+            # then assign the new stuff as above
+
             with st.spinner("Calling /parse/resume ..."):
                 resume_parsed = call_parse_resume(resume_text_to_send)
             with st.spinner("Calling /parse/job ..."):
                 job_parsed = call_parse_job(job_text_to_send)
 
-            st.session_state.resume_terms = resume_parsed.get("resume_terms", [])
-            st.session_state.job_terms = job_parsed.get("job_terms", [])
+            raw_resume_terms = resume_parsed.get("resume_terms", [])
+            raw_job_terms = job_parsed.get("job_terms", [])
+
+            st.session_state.resume_terms = raw_resume_terms
+            st.session_state.job_terms = merge_job_terms(raw_job_terms)
 
             st.success("Parsed successfully. Review the extracted terms below.")
         except Exception as e:
@@ -236,12 +302,16 @@ if score_btn:
     else:
         # Convert back to list of dicts
         resume_terms = edited_resume_df.to_dict(orient="records")
-        job_terms = edited_job_df.to_dict(orient="records")
+        raw_job_terms = edited_job_df.to_dict(orient="records")
+
+        # 🚨 Ensure only one job_term per skill before sending to backend
+        job_terms = merge_job_terms(raw_job_terms)
 
         try:
             with st.spinner("Calling /score/from-text ..."):
                 result = call_score_from_text(resume_terms, job_terms)
-
+            resume_terms = []
+            job_terms = []
             score = result.get("score", None)
             breakdown = result.get("breakdown", None)
 
