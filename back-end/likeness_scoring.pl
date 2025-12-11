@@ -1,9 +1,9 @@
 :- use_module(library(lists)).
 :- use_module(library(aggregate)).
 
-% -------------------------
-% Knowledge Graph
-% -------------------------
+
+% Knowledge Graph we built from the internet 
+
 related('azure', '.net', 0.01).
 related('sql-server', '.net', 0.12).
 related('asp.net', '.net', 0.97).
@@ -758,9 +758,9 @@ edge(Xc, Yc, W) :-
     canonical(X, Xc),
     canonical(Y, Yc).
 
-% -------------------------
-% 2) Aliases
-% -------------------------
+
+% Aliases
+
 alias('c#','csharp').
 alias('microsoft_sql_server','mssql').
 alias('sql','mssql').
@@ -769,15 +769,15 @@ alias('sql','mssql').
 canonical(T, C) :-
     ( alias(T, A) -> C = A ; C = T ).
 
-% -------------------------
-% 3) Resume / Job Facts — NOW FULLY DYNAMIC
-% -------------------------
+
+% Resume / Job Facts 
+
 :- dynamic resume_term/3.
 :- dynamic job_term/4.
 
-% -------------------------
-% 4) Temporal Utilities
-% -------------------------
+
+% Temporal Utilities. We convert to YYYYMM format for ease of calculation, we also calculate time ranges here
+
 ym_to_ym(YM, Y, M) :- Y is YM // 100, M is YM mod 100.
 
 months_between(YM1, YM2, Months) :-
@@ -810,9 +810,9 @@ temporal_factor(RStart, REnd, JStart, none, Factor) :-
      Factor0 is Overlap / 36,
      Factor is min(1.0, Factor0)).
 
-% -------------------------
-% 5) Similarity Measure
-% -------------------------
+
+% We assign weights to edges in the graph based on relatedness
+
 graph_similarity(A, B, S) :-
     canonical(A, Ac),
     canonical(B, Bc),
@@ -820,9 +820,9 @@ graph_similarity(A, B, S) :-
     ; edge(Ac, Bc, W) -> S = W
     ; S = 0.0 ).
 
-% -------------------------
-% 6) Pair Score
-% -------------------------
+
+% We calculate pair scores for job/resume term pairs and then determine best matches
+
 pair_score(JTerm, RTerm, Importance, PairScore, details{sim:Sim, temp:TF}) :-
     graph_similarity(JTerm, RTerm, Sim),
     resume_term(RTerm, RStart, REnd),
@@ -841,9 +841,9 @@ best_match_for_job(JTerm, BestRTerm, BestScore, Details) :-
     Sorted = [ pair(BestRTerm, BestScore, Details) | _ ].
 best_match_for_job(_, none, 0.0, _{}).
 
-% -------------------------
-% 7) Final Aggregate Score
-% -------------------------
+
+% We compute the final score and breakdown based on weighted averages
+
 final_score(Score, Breakdown) :-
     findall(Importance, job_term(_, Importance, _, _), Imps),
     sum_list(Imps, Den),
