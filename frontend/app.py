@@ -16,6 +16,7 @@ st.set_page_config(page_title="Resume–Job Matcher", page_icon="🤝", layout="
 # SMALL HELPERS
 # -------------------------------------------------
 def call_parse_resume(resume_text: str) -> Dict:
+    # Backend expects: form-data, field name "file"
     files = {
         "file": ("resume.txt", resume_text.encode("utf-8"), "text/plain")
     }
@@ -60,22 +61,31 @@ st.title("🤝 Resume – Job Matcher")
 
 st.markdown(
     """
-    1. Paste your **resume** and **job** in the standard text formats  
-    2. Click **“Parse ”**  
+    1. Provide your **resume** and **job** (paste text or upload .txt files)  
+    2. Click **“Parse”** to call `/parse/resume` and `/parse/job`  
     3. Verify or edit the parsed terms  
-    4. Click **“Compute final score”**  
+    4. Click **“Compute final score”** to call `/score/from-text`  
     """
 )
-
-
 
 col_left, col_right = st.columns(2)
 
 # ---------------------- INPUTS ----------------------
 with col_left:
-    st.subheader("1. Resume text")
+    st.subheader("1. Resume")
 
-    resume_example = """NAME: Sean McCarthy
+    resume_input_mode = st.radio(
+        "Resume input mode",
+        ("Paste text", "Upload .txt file"),
+        horizontal=True,
+        key="resume_mode",
+    )
+
+    resume_text = ""
+    uploaded_resume_file = None
+
+    if resume_input_mode == "Paste text":
+        resume_example = """NAME: Sean McCarthy
 EMAIL: sean@email.com
 
 SKILLS:
@@ -88,17 +98,35 @@ azure, 201901, 202305
 csharp, 202103, 202107
 sql, 201701, 201812
 """
-
-    resume_text = st.text_area(
-        "Paste resume in standard format",
-        value=resume_example,
-        height=250,
-    )
+        resume_text = st.text_area(
+            "Paste resume in standard format",
+            value=resume_example,
+            height=250,
+        )
+    else:
+        uploaded_resume_file = st.file_uploader(
+            "Upload resume text file (.txt)",
+            type=["txt"],
+            key="resume_file",
+        )
+        if uploaded_resume_file is not None:
+            st.success(f"Loaded file: {uploaded_resume_file.name}")
 
 with col_right:
-    st.subheader("2. Job description text")
+    st.subheader("2. Job description")
 
-    job_example = """JOB_TITLE: Cloud Software Engineer
+    job_input_mode = st.radio(
+        "Job input mode",
+        ("Paste text", "Upload .txt file"),
+        horizontal=True,
+        key="job_mode",
+    )
+
+    job_text = ""
+    uploaded_job_file = None
+
+    if job_input_mode == "Paste text":
+        job_example = """JOB_TITLE: Cloud Software Engineer
 
 REQUIREMENTS:
 azure, 1.0
@@ -108,29 +136,52 @@ mssql, 0.7
 TIME_REQUIREMENTS:
 .net, 201801, none
 """
-
-    job_text = st.text_area(
-        "Paste job description in standard format",
-        value=job_example,
-        height=250,
-        
-    )
-    
+        job_text = st.text_area(
+            "Paste job description in standard format",
+            value=job_example,
+            height=250,
+        )
+    else:
+        uploaded_job_file = st.file_uploader(
+            "Upload job description text file (.txt)",
+            type=["txt"],
+            key="job_file",
+        )
+        if uploaded_job_file is not None:
+            st.success(f"Loaded file: {uploaded_job_file.name}")
 
 st.markdown("---")
 
 # ---------------------- PARSING STEP ----------------------
-parse_btn = st.button("🔍 Parse ")
+parse_btn = st.button("🔍 Parse")
 
 if parse_btn:
-    if not resume_text.strip() or not job_text.strip():
-        st.error("Please fill both resume and job text before parsing.")
+    # Decide where to take resume text from
+    if resume_input_mode == "Upload .txt file":
+        if uploaded_resume_file is None:
+            st.error("Please upload a resume .txt file.")
+        else:
+            resume_text_to_send = uploaded_resume_file.getvalue().decode("utf-8")
+    else:
+        resume_text_to_send = resume_text.strip()
+
+    # Decide where to take job text from
+    if job_input_mode == "Upload .txt file":
+        if uploaded_job_file is None:
+            st.error("Please upload a job .txt file.")
+        else:
+            job_text_to_send = uploaded_job_file.getvalue().decode("utf-8")
+    else:
+        job_text_to_send = job_text.strip()
+
+    if not resume_text_to_send or not job_text_to_send:
+        st.error("Both resume and job text must be provided (either pasted or uploaded).")
     else:
         try:
             with st.spinner("Calling /parse/resume ..."):
-                resume_parsed = call_parse_resume(resume_text)
+                resume_parsed = call_parse_resume(resume_text_to_send)
             with st.spinner("Calling /parse/job ..."):
-                job_parsed = call_parse_job(job_text)
+                job_parsed = call_parse_job(job_text_to_send)
 
             st.session_state.resume_terms = resume_parsed.get("resume_terms", [])
             st.session_state.job_terms = job_parsed.get("job_terms", [])
@@ -181,7 +232,7 @@ score_btn = st.button("✅ Compute final score")
 
 if score_btn:
     if edited_resume_df is None or edited_job_df is None:
-        st.error("You need parsed data first. Click on 'Parse using backend'.")
+        st.error("You need parsed data first. Click on 'Parse'.")
     else:
         # Convert back to list of dicts
         resume_terms = edited_resume_df.to_dict(orient="records")
@@ -206,9 +257,6 @@ if score_btn:
             else:
                 st.write("No breakdown returned.")
 
-            st.caption(
-                "later parse this breakdown a prettier explanation."
-            )
-
+            st.caption("Later you can parse this breakdown into a nicer explanation.")
         except Exception as e:
             st.error(f"Error while scoring: {e}")
