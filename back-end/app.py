@@ -6,15 +6,10 @@ import re
 
 app = FastAPI()
 
-# -------------------------
-# Global Prolog engine
-# -------------------------
+
 prolog = Prolog()
 prolog.consult("likeness_scoring.pl")  # consult once at startup
 
-# -------------------------
-# Pydantic models
-# -------------------------
 class ResumeTerm(BaseModel):
     term: str
     start: int
@@ -30,9 +25,7 @@ class ScoreRequest(BaseModel):
     resume: List[ResumeTerm]
     job: List[JobTerm]
 
-# -------------------------
-# Helpers
-# -------------------------
+
 def clear_terms():
     """
     Completely clear resume_term/3 and job_term/4 from the Prolog KB.
@@ -98,9 +91,6 @@ def merge_job_terms(raw_terms: List[Dict]) -> List[Dict]:
 
     return list(term_map.values())
 
-# -------------------------
-# Parsing endpoints
-# -------------------------
 @app.post("/parse/resume")
 async def parse_resume(file: UploadFile = File(...)):
     text = (await file.read()).decode("utf-8")
@@ -132,28 +122,17 @@ async def parse_job(file: UploadFile = File(...)):
             })
     return {"job_terms": job_terms, "status": "Ready for validation"}
 
-# -------------------------
-# Final scoring
-# -------------------------
 @app.post("/score/from-text")
 def score_from_text(payload: ScoreRequest):
-    # 1) Clean KB
     clear_terms()
 
-    # 2) Merge job terms on backend, just in case
     job_terms_dicts = [jt.model_dump() for jt in payload.job]
     merged_jobs = merge_job_terms(job_terms_dicts)
     merged_job_models = [JobTerm(**j) for j in merged_jobs]
 
-    # 3) Assert fresh facts
     set_resume_terms(payload.resume)
     set_job_terms(merged_job_models)
 
-    # Optional: debug what Prolog thinks it has
-    # job_facts = list(prolog.query("findall(T-I, job_term(T,I,_,_), L)"))
-    # print("JOB FACTS:", job_facts)
-
-    # 4) Run score
     result = list(prolog.query("final_score(Score, Breakdown)"))
     if not result:
         return {"error": "No score returned"}
